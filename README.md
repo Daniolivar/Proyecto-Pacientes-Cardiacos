@@ -5,10 +5,12 @@
 <h1> Descripción del Proyecto</h1>
 <p>Las enfermedades cardiovasculares son una de las principales causas de mortalidad a nivel mundial. En este proyecto, analizamos un conjunto de datos médicos para identificar patrones y factores de riesgo clave. Posteriormente, implementamos un modelo predictivo capaz de estimar la probabilidad de enfermedad y simulamos diferentes escenarios clínicos (riesgo actual vs. riesgo con intervención médica)</p>
 
-<h1>Metodología Aplicada</h1>
-<
 
-# Importación de librerías esenciales
+
+<h2>Configuración e Importación de Librerías</h2>
+Para iniciar el proyecto, el primer paso es preparar nuestro entorno de trabajo. A continuación se muestran las librerías principales que utilizamos y su propósito dentro del análisis
+
+```python
 import kagglehub
 import pandas as pd
 import os
