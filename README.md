@@ -8,11 +8,10 @@
 <h1>Metodología Aplicada</h1>
 <
 
-
+# Importación de librerías esenciales
 import kagglehub
 import pandas as pd
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
