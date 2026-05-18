@@ -1,2 +1,4 @@
-# Proyecto Pacientes Cardiacos
-A traves de un set de datos de personas con problemas cardivasculares, se desarrolló un ejercicio de limpieza, visulización, estadistica descriptiva. Así mismo se evaluaron distintos modelos de machine learning, para verificar cual era el más adecuado. 
+<h1> Análisis y Predicción de Riesgo Cardiovascular </h1> 
+<p>Este proyecto tiene como objetivo analizar variables clínicas y predecir el riesgo de que un paciente desarrolle enfermedades cardiovasculares utilizando técnicas de análisis exploratorio de datos (EDA) y algoritmos de Machine Learning.
+</p>
+
