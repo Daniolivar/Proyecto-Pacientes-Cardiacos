@@ -54,143 +54,62 @@ dtypes: float64(1), int64(12)
 memory usage: 6.9 MB
 
 ```
+### 🧹 Paso 3: Limpieza de Datos y Validación Clínica
+
+En esta fase preparamos el dataset para el modelado. Esto incluye la estandarización de columnas al español, la conversión de unidades (como la edad de días a años), el manejo de valores nulos y, lo más importante, la aplicación de **filtros médicos** para eliminar registros biológicamente imposibles.
 
 ```python
-df.shape
-(70000, 13)
-
-df.info()
-<class 'pandas.core.frame.DataFrame'>
-RangeIndex: 70000 entries, 0 to 69999
-Data columns (total 13 columns):
- #   Column       Non-Null Count  Dtype  
----  ------       --------------  -----  
- 0   id           70000 non-null  int64  
- 1   age          70000 non-null  int64  
- 2   gender       70000 non-null  int64  
- 3   height       70000 non-null  int64  
- 4   weight       70000 non-null  float64
- 5   ap_hi        70000 non-null  int64  
- 6   ap_lo        70000 non-null  int64  
- 7   cholesterol  70000 non-null  int64  
- 8   gluc         70000 non-null  int64  
- 9   smoke        70000 non-null  int64  
- 10  alco         70000 non-null  int64  
- 11  active       70000 non-null  int64  
- 12  cardio       70000 non-null  int64  
-dtypes: float64(1), int64(12)
-memory usage: 6.9 MB
-
-```
-
-```python
-
 print("Limpieza de Datos")
 
-# Remover registros duplicados del dataset
+# 1. Remover registros duplicados del dataset
 df = df.drop_duplicates()
 
-# Diccionario de traducción de nombres de columnas
+# 2. Traducción de nombres de columnas para mejor legibilidad
 columnas_traducidas = {
-    'age': 'edad',
-    'gender': 'genero',
-    'height': 'altura',
-    'weight': 'peso',
-    'ap_hi': 'presion_sistolica',
-    'ap_lo': 'presion_diastolica',
-    'cholesterol': 'colesterol',
-    'gluc': 'glucosa',
-    'smoke': 'fumador',
-    'alco': 'alcohol',
-    'active': 'activo',
-    'cardio': 'enfermedad_cardiaca',
+    'age': 'edad', 'gender': 'genero', 'height': 'altura', 
+    'weight': 'peso', 'ap_hi': 'presion_sistolica', 
+    'ap_lo': 'presion_diastolica', 'cholesterol': 'colesterol', 
+    'gluc': 'glucosa', 'smoke': 'fumador', 'alco': 'alcohol', 
+    'active': 'activo', 'cardio': 'enfermedad_cardiaca'
 }
+df = df.rename(columns=columnas_traducidas)
 
-# Aplicar renombramiento solo a columnas presentes
-columnas_a_renombrar = {k: v for k, v in columnas_traducidas.items() if k in df.columns}
-df = df.rename(columns=columnas_a_renombrar)
-
-# Identificar y renombrar la variable dependiente
-if 'enfermedad_cardiaca' not in df.columns:
-    variables_objetivo = ['cardio', 'HeartDisease', 'target', 'disease']
-    columna_encontrada = False
-
-    for nombre_col in variables_objetivo:
-        if nombre_col in df.columns:
-            df = df.rename(columns={nombre_col: 'enfermedad_cardiaca'})
-            print(f" Variable objetivo identificada: '{nombre_col}' renombrada exitosamente")
-            columna_encontrada = True
-            break
-
-    if not columna_encontrada:
-        raise KeyError("Error: No se pudo identificar la variable objetivo en el dataset.")
-
-# Normalizar variable objetivo a formato binario
-df['enfermedad_cardiaca'] = df['enfermedad_cardiaca'].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
-
-# Transformar edad de días a años cuando sea necesario
+# 3. Transformación de edad de días a años
 if 'edad' in df.columns:
-    valor_maximo_edad = df['edad'].max()
-    if valor_maximo_edad > 150:
+    if df['edad'].max() > 150:
         df['edad'] = np.floor(df['edad'] / 365.25).astype(int)
         print("→ Transformación aplicada: edad convertida de días a años.")
 
-# Análisis y tratamiento de datos faltantes
+# 4. Tratamiento de datos faltantes
 total_nulos = df.isnull().sum().sum()
-
 if total_nulos > 0:
     print(f"→ Detectados {total_nulos} valores faltantes. Aplicando imputación...")
-
-    # Imputación por mediana en variables numéricas
-    columnas_numericas = df.select_dtypes(include=[np.number]).columns
-    for columna in columnas_numericas:
-        if df[columna].isnull().any():
-            df[columna] = df[columna].fillna(df[columna].median())
-
-    # Imputación por moda en variables categóricas
-    columnas_categoricas = df.select_dtypes(exclude=[np.number]).columns
-    for columna in columnas_categoricas:
-        if df[columna].isnull().any():
-            moda_calculada = df[columna].mode()
-            valor_relleno = moda_calculada[0] if len(moda_calculada) > 0 else 'Desconocido'
-            df[columna] = df[columna].fillna(valor_relleno)
+    # Imputación (Mediana para numéricas, Moda para categóricas)...
 else:
     print("→ Dataset completo: sin valores faltantes detectados.")
 
 print("✅ Proceso de preprocesamiento finalizado exitosamente.\n")
 
-
+# -----------------------------------------
 # FILTRADO POR CRITERIOS MÉDICOS
+# -----------------------------------------
+print("Filtros de validez Clínica")
 
-print("Filtros de validez Clinica ")
-
-# Establecer rangos aceptables para presión arterial
-condiciones_presion = (
-    (df['presion_sistolica'].between(90, 220)) &
-    (df['presion_diastolica'].between(60, 140)) &
-    (df['presion_diastolica'] < df['presion_sistolica'])
-)
-df = df[condiciones_presion]
-
-# --- PEGA ESTO EN SU LUGAR ---
-
-# 1. Filtro de Presión (Esto ya lo tenías bien, pero aseguramos la lógica)
+# 5. Filtro de Presión Arterial
+# La presión sistólica SIEMPRE debe ser mayor que la diastólica y estar en rangos lógicos
 condiciones_presion = (
     (df['presion_sistolica'].between(90, 240)) &
     (df['presion_diastolica'].between(60, 160)) &
-    (df['presion_sistolica'] > df['presion_diastolica']) # La sistólica SIEMPRE debe ser mayor
+    (df['presion_sistolica'] > df['presion_diastolica']) 
 )
 df = df[condiciones_presion]
 
-# 2. Filtro de IMC (La mejora clave)
-# Calculamos IMC: Peso / (Altura en metros al cuadrado)
+# 6. Feature Engineering: Creación y filtro de IMC
+# Calculamos el Índice de Masa Corporal: Peso / (Altura en metros al cuadrado)
 df['imc'] = df['peso'] / ((df['altura'] / 100) ** 2)
 
-# Eliminamos IMCs imposibles (menores a 10 o mayores a 60 son errores casi seguro)
+# Eliminamos IMCs imposibles (menores a 10 o mayores a 60 son errores de registro)
 df = df[df['imc'].between(10, 60)]
-
-registros_finales = len(df)
-print(f"→ Registros válidos finales: {registros_finales}")
 
 
 ```
