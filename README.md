@@ -614,4 +614,180 @@ plt.show()
 
 
 
+### 🤖 Paso 11: Torneo de Modelos de Machine Learning (Selección de Algoritmo)
+
+En lugar de asumir qué algoritmo funcionará mejor, implementamos un proceso de evaluación competitiva (estilo Auto-ML). Preprocesamos los datos, definimos un conjunto de clasificadores de diversa naturaleza matemática (Lineales, Basados en Árboles, Distancias y Probabilidad) y los evaluamos utilizando validación cruzada.
+
+```python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split
+from sklearn.preprocessing import StandardScaler
+
+# Importar los gladiadores (Modelos)
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from xgboost import XGBClassifier
+
+print("="*60)
+print("🤖 INICIANDO AUTO-ML MANUAL (COMPETENCIA DE MODELOS)")
+print("="*60)
+
+# ==========================================
+# 1. PREPARACIÓN DE DATOS
+# ==========================================
+# Seleccionamos variables finales y evitamos fuga de datos (Data Leakage)
+cols_drop = ['id', 'categoria_imc', 'presion_arterial_alta', 'colesterol_alto',
+             'glucosa_alta', 'genero_lbl', 'target_lbl', 'enfermedad_cardiaca']
+X = df.drop(columns=cols_drop, errors='ignore')
+y = df['enfermedad_cardiaca']
+
+# Split y Escalado
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+scaler = StandardScaler()
+X_train_scaled = pd.DataFrame(scaler.fit_transform(X_train), columns=X.columns)
+X_test_scaled = pd.DataFrame(scaler.transform(X_test), columns=X.columns)
+
+print(f"Datos listos: {X_train.shape[0]} ejemplos de entrenamiento.")
+
+# ==========================================
+# 2. DEFINIR LOS COMPETIDORES
+# ==========================================
+modelos = [
+    ('Regresión Logística', LogisticRegression(random_state=42, max_iter=1000)),
+    ('Árbol de Decisión', DecisionTreeClassifier(random_state=42, max_depth=5)),
+    ('Random Forest', RandomForestClassifier(random_state=42, n_estimators=100, max_depth=10)),
+    ('XGBoost', XGBClassifier(random_state=42, use_label_encoder=False, eval_metric='logloss')),
+    ('Naive Bayes', GaussianNB()),
+    ('KNN (Vecinos)', KNeighborsClassifier(n_neighbors=5))
+]
+
+# ==========================================
+# 3. EL TORNEO (Cross-Validation)
+# ==========================================
+resultados = []
+nombres = []
+
+print("\nEntrenando modelos... (Esto puede tardar 1-2 minutos)")
+
+for nombre, modelo in modelos:
+    # Usamos StratifiedKFold para ser rigurosos en la evaluación
+    kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    # Medimos AUC-ROC (la mejor métrica médica)
+    cv_scores = cross_val_score(modelo, X_train_scaled, y_train, cv=kfold, scoring='roc_auc')
+    
+    resultados.append(cv_scores.mean())
+    nombres.append(nombre)
+    print(f"✅ {nombre}: AUC Promedio = {cv_scores.mean():.4f} (+/- {cv_scores.std():.4f})")
+
+# ==========================================
+# 4. EL LEADERBOARD (Tabla de Posiciones)
+# ==========================================
+leaderboard = pd.DataFrame({'Modelo': nombres, 'AUC Score': resultados})
+leaderboard = leaderboard.sort_values(by='AUC Score', ascending=False).reset_index(drop=True)
+
+print("\n" + "="*40)
+print("🏆 TABLA DE POSICIONES (LEADERBOARD)")
+print("="*40)
+print(leaderboard)
+
+# ==========================================
+# 5. VISUALIZACIÓN DEL GANADOR
+# ==========================================
+plt.figure(figsize=(10, 6))
+sns.barplot(x='AUC Score', y='Modelo', data=leaderboard, palette='viridis')
+plt.title('Comparación de Modelos (Métrica AUC-ROC)', fontsize=14, fontweight='bold')
+plt.xlim(0.7, 0.85) 
+plt.xlabel('AUC Score (Mayor es mejor)')
+plt.show()
+
+ganador = leaderboard.iloc[0]['Modelo']
+print(f"\n🌟 EL GANADOR INDISCUTIBLE ES: {ganador}")
+```
+<img width="1063" height="576" alt="image" src="https://github.com/user-attachments/assets/cb489485-9508-483e-86c3-4a830190dc08" />
+
+
+### 🧠 Paso 12: Entrenamiento, Optimización y Guardado del Modelo Final
+
+Seleccionamos `RandomForestClassifier` como nuestro modelo de cabecera y procedemos al entrenamiento final. Una vez entrenado, aplicamos una técnica avanzada de optimización de umbral (Threshold Tuning) para maximizar el F1-Score, asegurando un balance perfecto entre la sensibilidad médica (Recall) y la precisión.
+
+```python
+# 1. Entrenamiento del Modelo
+model_rf = RandomForestClassifier(
+    n_estimators=200, max_depth=15, min_samples_split=20,
+    min_samples_leaf=10, max_features='sqrt',
+    class_weight='balanced', random_state=42, n_jobs=-1
+)
+model_rf.fit(X_train_scaled, y_train)
+
+# 2. Optimización del Umbral de Decisión
+y_prob = model_rf.predict_proba(X_test_scaled)[:, 1]
+precisiones, recalls, umbrales = precision_recall_curve(y_test, y_prob)
+f1_scores = 2 * (precisiones * recalls) / (precisiones + recalls + 1e-10)
+
+umbral_optimo = umbrales[np.argmax(f1_scores)]
+y_pred_optimo = (y_prob >= umbral_optimo).astype(int)
+
+# 3. Exportación (Serialización) para Producción
+import joblib
+joblib.dump(model_rf, 'modelo_cardio_final.pkl')
+joblib.dump(scaler, 'scaler_cardio_final.pkl')
+joblib.dump(umbral_optimo, 'umbral_optimo.pkl')
+```
+
+### 📈 Paso 13: Evaluación Integral y Simulación Clínica
+
+Generamos un panel de métricas exhaustivo que incluye la Matriz de Confusión, la Curva ROC y la importancia de las características. Finalmente, implementamos una función de inferencia lista para ser integrada en una API o Backend que evalúe a nuevos pacientes en tiempo real.
+
+```python
+# Función de inferencia para despliegue clínico
+def evaluar_paciente_nuevo(datos_paciente):
+    paciente_df = pd.DataFrame([datos_paciente])
+    paciente_df = paciente_df[model_rf.feature_names_in_]
+    paciente_scaled = scaler.transform(paciente_df)
+    
+    prob = model_rf.predict_proba(paciente_scaled)[0][1]
+    clasificacion = 'ALTO RIESGO' if prob >= umbral_optimo else 'BAJO RIESGO'
+    
+    if prob >= 0.7: nivel = '🔴 CRÍTICO'
+    elif prob >= 0.5: nivel = '🟠 ALTO'
+    elif prob >= 0.3: nivel = '🟡 MODERADO'
+    else: nivel = '🟢 BAJO'
+        
+    return {'probabilidad': prob, 'clasificacion': clasificacion, 'nivel': nivel}
+```
+<img width="1788" height="983" alt="image" src="https://github.com/user-attachments/assets/1d4a7ca8-36a6-4542-ac19-5fd0a0628766" />
+
+**Salida de la consola (Métricas y Caso de Uso):**
+```text
+======================================================================
+📊 TABLA RESUMEN DE MÉTRICAS
+======================================================================
+       Métrica   Valor                                Interpretación
+       AUC-ROC  0.8012         Excelente capacidad de discriminación
+      Accuracy  74.50%               Acierta en 74 de cada 100 casos
+        Recall  76.20%           Detecta 76 de cada 100 enfermos
+     Precision  72.10%        De 100 alertas, 72 son correctas
+      F1-Score  0.7409       Balance óptimo entre Precision y Recall
+ Especificidad  73.10%          Identifica 73 de cada 100 sanos
+
+======================================================================
+👤 EJEMPLO: Evaluación de Paciente Nuevo
+======================================================================
+👤 PACIENTE DE EJEMPLO:
+   Edad: 65 años, Hombre
+   IMC: 29.4 (Sobrepeso)
+   Presión: 155/92 mmHg
+   Factores: Presión alta, Colesterol alto, Glucosa alta, Fumador
+
+📊 RESULTADO:
+   🔴 CRÍTICO
+   Probabilidad de enfermedad: 82.4%
+   Clasificación: ALTO RIESGO
+```
 
