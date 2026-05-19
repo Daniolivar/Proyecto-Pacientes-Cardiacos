@@ -113,3 +113,52 @@ df = df[df['imc'].between(10, 60)]
 
 
 ```
+
+
+### 📊 Paso 4: Análisis Exploratorio de Datos (EDA) y Visualización
+
+Para comprender la relación entre nuestras variables numéricas clave y el riesgo de enfermedad cardíaca, generamos diagramas de caja (boxplots) comparativos con una estética científica.
+
+```python
+# Configuración estética profesional
+sns.set(style="whitegrid", context="talk")
+
+# 1. Definimos las variables que realmente tienes en tu dataset cardiaco
+vars_numericas = ['edad', 'presion_sistolica', 'presion_diastolica', 'imc']
+titulos = ['Edad (Años)', 'Presión Sistólica (mmHg)', 'Presión Diastólica (mmHg)', 'IMC (kg/m²)']
+
+# 2. Creamos la figura general
+plt.figure(figsize=(16, 12)) # Tamaño grande para que quepan todos
+
+# 3. Bucle para generar un gráfico por cada variable
+for num, (var, titulo) in enumerate(zip(vars_numericas, titulos), 1):
+    plt.subplot(2, 2, num) # Crea una cuadrícula de 2x2
+
+    # EL BOXPLOT (Estilo Científico)
+    sns.boxplot(
+        data=df,
+        x='enfermedad_cardiaca',    # Eje X: El diagnóstico (0 o 1)
+        y=var,                      # Eje Y: La variable médica
+        palette=['#2ecc71', '#e74c3c'], # Verde (Sano) y Rojo (Enfermo)
+        showfliers=False,           # Ocultamos puntos extremos para ver mejor las cajas
+        linewidth=2.5,
+        width=0.5
+    )
+
+    # Etiquetas y limpieza
+    plt.title(f'Distribución de {titulo}', fontsize=14, fontweight='bold', pad=15)
+    plt.xlabel('') # Quitamos etiqueta X redundante
+    plt.ylabel(titulo, fontsize=12)
+    plt.xticks([0, 1], ['Sin Enfermedad', 'Con Enfermedad'], fontsize=11)
+
+    # Detalle Pro: Línea de la media general punteada (referencia)
+    media_general = df[var].median()
+    plt.axhline(media_general, color='gray', linestyle='--', alpha=0.7, label=f'Mediana General ({media_general:.1f})')
+    plt.legend(fontsize=10)
+
+plt.tight_layout()
+plt.show()
+
+```
+<img width="1566" height="1166" alt="image" src="https://github.com/user-attachments/assets/e7164106-74a9-4914-b62e-bcb082e19887" />
+
