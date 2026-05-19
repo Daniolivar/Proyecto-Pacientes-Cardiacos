@@ -390,7 +390,8 @@ for var, nombre in zip(nuevas_variables, nombres_riesgo):
 
 print("="*70)
 
-```
+**Salida de la consola:**
+```text
 ======================================================================
 🚀 GENERACIÓN Y VALIDACIÓN DE VARIABLES DE RIESGO
 ======================================================================
@@ -413,7 +414,7 @@ print("="*70)
    Odds Ratio: 1.56x
    -> Un paciente con Glucosa Alta tiene 1.6 VECES MÁS RIESGO de enfermedad.
 ======================================================================
-
+```
 
 ### 🔄 Paso 8: Binarización Optimizada y Verificación de Datos
 
