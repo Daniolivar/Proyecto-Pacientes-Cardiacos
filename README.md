@@ -502,3 +502,116 @@ plt.show()
 
 <img width="1189" height="566" alt="image" src="https://github.com/user-attachments/assets/369b745d-2a06-46b5-a491-b8c518038e69" />
 
+
+### 🏃‍♂️ Paso 10: Análisis de Factores de Estilo de Vida y Comportamiento
+
+Además de los factores puramente fisiológicos, analizamos el impacto del estilo de vida (tabaquismo, consumo de alcohol, actividad física y grado de obesidad) en la prevalencia de la enfermedad. Para ello, segmentamos a los pacientes y calculamos la probabilidad porcentual absoluta de padecer problemas cardíacos en cada grupo.
+
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import chi2_contingency
+
+# Configuración visual
+sns.set(style="whitegrid", context="talk")
+plt.rcParams['font.size'] = 11
+
+# ==========================================
+# 1. ASEGURAR QUE EXISTE LA CATEGORÍA IMC (Binning)
+# ==========================================
+if 'categoria_imc' not in df.columns:
+    df['imc'] = df['peso'] / ((df['altura'] / 100) ** 2)
+    def clasificar_imc(imc):
+        if imc < 18.5: return 'Bajo Peso'
+        elif imc < 25: return 'Normal'
+        elif imc < 30: return 'Sobrepeso'
+        else: return 'Obesidad'
+    df['categoria_imc'] = df['imc'].apply(clasificar_imc)
+
+orden_imc = ['Bajo Peso', 'Normal', 'Sobrepeso', 'Obesidad']
+
+# ==========================================
+# 2. LISTA DE FACTORES A ANALIZAR
+# ==========================================
+factores = [
+    ('categoria_imc', 'Categoría de IMC', orden_imc),
+    ('fumador', 'Hábito de Fumar', [0, 1]),
+    ('alcohol', 'Consumo de Alcohol', [0, 1]),
+    ('activo', 'Actividad Física', [0, 1])
+]
+
+etiquetas_binarias = {
+    'fumador': {0: 'No Fuma', 1: 'Sí Fuma'},
+    'alcohol': {0: 'No Bebe', 1: 'Sí Bebe'},
+    'activo': {0: 'Sedentario', 1: 'Activo'}
+}
+
+# ==========================================
+# 3. GENERACIÓN DE GRÁFICOS Y ESTADÍSTICAS
+# ==========================================
+fig, axes = plt.subplots(2, 2, figsize=(18, 12))
+axes = axes.flatten()
+
+for i, (var, titulo, orden) in enumerate(factores):
+    ax = axes[i]
+
+    # A) CALCULAR PORCENTAJES DE ENFERMEDAD
+    probabilidad = df.groupby(var)['enfermedad_cardiaca'].mean() * 100
+    conteos = df[var].value_counts()
+
+    if orden:
+        probabilidad = probabilidad.reindex(orden)
+        conteos = conteos.reindex(orden)
+
+    # B) PRUEBA ESTADÍSTICA (Chi-Cuadrado)
+    tabla_contingencia = pd.crosstab(df[var], df['enfermedad_cardiaca'])
+    chi2, p_value, _, _ = chi2_contingency(tabla_contingencia)
+
+    if p_value < 0.001: sig = '***'
+    elif p_value < 0.01: sig = '**'
+    elif p_value < 0.05: sig = '*'
+    else: sig = 'ns (No sig.)'
+
+    # C) GRAFICAR BARRAS DE PORCENTAJE
+    colores = 'Reds' if var == 'categoria_imc' else ['#95a5a6', '#e74c3c']
+    sns.barplot(x=probabilidad.index, y=probabilidad.values, ax=ax,
+                palette=colores if var == 'categoria_imc' else None,
+                order=orden, edgecolor='black', alpha=0.8)
+
+    if var in ['fumador', 'alcohol', 'activo']:
+        ax.patches[0].set_facecolor('#95a5a6') 
+        ax.patches[1].set_facecolor('#e74c3c') 
+        nombres_x = [etiquetas_binarias[var].get(x, x) for x in probabilidad.index]
+        ax.set_xticklabels(nombres_x)
+
+    # D) DETALLES DEL GRÁFICO
+    ax.set_title(f'{titulo}\nChi² p={p_value:.2e} ({sig})', fontsize=14, fontweight='bold')
+    ax.set_ylabel('% con Enfermedad Cardíaca')
+    ax.set_xlabel('')
+    ax.set_ylim(0, 60) 
+
+    # Línea promedio general (referencia clave)
+    promedio_global = df['enfermedad_cardiaca'].mean() * 100
+    ax.axhline(promedio_global, color='navy', linestyle='--', alpha=0.5)
+    ax.text(ax.get_xlim()[1], promedio_global, f' Promedio Global ({promedio_global:.1f}%)',
+            va='center', color='navy', fontsize=10)
+
+    # E) VALORES SOBRE LAS BARRAS
+    for p in ax.patches:
+        altura = p.get_height()
+        ax.text(p.get_x() + p.get_width()/2., altura + 1,
+                f'{altura:.1f}%',
+                ha='center', va='bottom', fontsize=12, fontweight='bold', color='black')
+
+plt.suptitle('Impacto de Factores de Estilo de Vida en la Enfermedad\n(Porcentaje de enfermos por grupo)',
+             fontsize=18, fontweight='bold', y=0.98)
+plt.tight_layout()
+plt.show()
+
+```
+<img width="1787" height="1179" alt="image" src="https://github.com/user-attachments/assets/10a5e02e-82b3-4d76-9633-43c10a1cac35" />
+
+
+
+
