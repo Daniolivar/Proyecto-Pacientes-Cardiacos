@@ -227,4 +227,277 @@ plt.show()
 
 <img width="1966" height="1169" alt="image" src="https://github.com/user-attachments/assets/07c5a339-a583-4836-bd7f-c4acfee55057" />
 
+### 📈 Paso 6: Análisis Estadístico Inferencial (Prueba T de Student)
+
+Para ir más allá de la exploración visual y otorgar rigor científico a nuestras conclusiones, aplicamos pruebas de hipótesis. Utilizamos la **Prueba T de Student** para confirmar estadísticamente si las diferencias en los factores de riesgo (como la presión o el IMC) entre pacientes sanos y enfermos son reales o producto del azar.
+****
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+from scipy import stats
+
+# Configuración visual
+sns.set(style="whitegrid", context="talk")
+plt.rcParams['font.size'] = 11
+
+# ==========================================
+# 1. CONFIGURACIÓN
+# ==========================================
+variables_a_analizar = [
+    ('presion_sistolica', 'Presión Sistólica (mmHg)'),
+    ('edad', 'Edad (Años)'),
+    ('imc', 'Índice de Masa Corporal'),
+    ('presion_pulso', 'Presión de Pulso (mmHg)')
+]
+
+grupos = [0, 1]
+colores = ['#2ecc71', '#e74c3c'] # Verde y Rojo
+
+# ==========================================
+# 2. FUNCIÓN CON T-STUDENT
+# ==========================================
+def grafico_tstudent_cardio(df, variable, titulo, ax):
+
+    # 1. Datos
+    grupo0 = df[df['enfermedad_cardiaca'] == 0][variable].dropna()
+    grupo1 = df[df['enfermedad_cardiaca'] == 1][variable].dropna()
+
+    # 2. PRUEBA T-STUDENT (Independiente)
+    # equal_var=False aplica la corrección de Welch (más robusto si las varianzas son distintas)
+    t_stat, p_value = stats.ttest_ind(grupo0, grupo1, equal_var=False)
+
+    # 3. Medias y Errores
+    medias = [grupo0.mean(), grupo1.mean()]
+    errores = [grupo0.std(), grupo1.std()]
+
+    # 4. Significancia
+    if p_value < 0.001: sig = '***'
+    elif p_value < 0.01: sig = '**'
+    elif p_value < 0.05: sig = '*'
+    else: sig = 'ns'
+
+    # 5. Graficar
+    barras = ax.bar([0, 1], medias, yerr=errores,
+                   color=colores, capsize=10,
+                   edgecolor='black', linewidth=2, alpha=0.8,
+                   error_kw={'linewidth': 2, 'ecolor': 'black'})
+
+    # 6. Títulos Técnicos (T-value y P-value)
+    ax.set_title(f'{titulo}\nT-Student: t={t_stat:.2f}, p={p_value:.2e} ({sig})',
+                 fontsize=13, fontweight='bold', pad=15)
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(['Sanos', 'Enfermos'], fontsize=12, fontweight='bold')
+
+    # 7. Valores numéricos
+    max_y = 0
+    for i, bar in enumerate(barras):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2, height/2,
+                f'{medias[i]:.1f}',
+                ha='center', va='center', color='white', fontweight='bold', fontsize=14)
+        if height + errores[i] > max_y: max_y = height + errores[i]
+
+    # 8. Línea de Significancia
+    ax.set_ylim(0, max_y * 1.3)
+    h = max_y * 1.15
+    ax.plot([0, 0, 1, 1], [h, h+h*0.05, h+h*0.05, h], lw=1.5, c='k')
+    ax.text(0.5, h+h*0.05, sig, ha='center', va='bottom', fontsize=16, fontweight='bold', color='darkblue')
+
+# ==========================================
+# 3. EJECUTAR
+# ==========================================
+fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+axes = axes.flatten()
+
+for i, (var, titulo) in enumerate(variables_a_analizar):
+    if var in df.columns:
+        grafico_tstudent_cardio(df, var, titulo, axes[i])
+
+plt.suptitle("Comparación de Medias (Prueba T de Student)", fontsize=20, fontweight='bold', y=0.98)
+plt.tight_layout()
+plt.show()
+```
+<img width="1587" height="1179" alt="image" src="https://github.com/user-attachments/assets/83db4586-c440-4054-8908-72440850f85a" />
+
+### 🧬 Paso 7: Generación de Variables de Riesgo y Validación Epidemiológica (Chi-Cuadrado y Odds Ratio)
+
+Tras analizar las variables continuas, transformamos variables clínicas en indicadores binarios de riesgo basándonos en umbrales médicos internacionales. Posteriormente, validamos el impacto predictivo de estos factores mediante pruebas de Chi-Cuadrado y el cálculo del Odds Ratio (Razón de Momios).
+
+```python
+import pandas as pd
+import numpy as np
+from scipy.stats import chi2_contingency
+
+print("="*70)
+print("🚀 GENERACIÓN Y VALIDACIÓN DE VARIABLES DE RIESGO")
+print("="*70)
+
+# ---------------------------------------------------------
+# 1. CREAR LAS VARIABLES (Feature Engineering)
+# ---------------------------------------------------------
+# Definimos los umbrales médicos
+# Presión Alta: Sistólica >= 140 O Diastólica >= 90
+df['presion_arterial_alta'] = ((df['presion_sistolica'] >= 140) | (df['presion_diastolica'] >= 90)).astype(int)
+
+# Colesterol Alto: Niveles 2 (Por encima de normal) y 3 (Muy alto)
+df['colesterol_alto'] = df['colesterol'].apply(lambda x: 1 if x >= 2 else 0)
+
+# Glucosa Alta: Niveles 2 y 3
+df['glucosa_alta'] = df['glucosa'].apply(lambda x: 1 if x >= 2 else 0)
+
+print("✅ Variables creadas: 'presion_arterial_alta', 'colesterol_alto', 'glucosa_alta'")
+
+# ---------------------------------------------------------
+# 2. VALIDACIÓN ESTADÍSTICA (Chi-Cuadrado + Odds Ratio)
+# ---------------------------------------------------------
+nuevas_variables = ['presion_arterial_alta', 'colesterol_alto', 'glucosa_alta']
+nombres_riesgo = ['Presión Alta', 'Colesterol Alto', 'Glucosa Alta']
+
+print("\n📊 RESULTADOS DEL ANÁLISIS DE RIESGO:")
+
+for var, nombre in zip(nuevas_variables, nombres_riesgo):
+    # Tabla de contingencia
+    tabla = pd.crosstab(df[var], df['enfermedad_cardiaca'])
+
+    # Prueba Chi-Cuadrado
+    chi2, p_value, _, _ = chi2_contingency(tabla)
+
+    # Cálculo de Odds Ratio (OR)
+    if tabla.shape == (2, 2):
+        tn = tabla.iloc[0, 0]
+        fp = tabla.iloc[0, 1]
+        fn = tabla.iloc[1, 0]
+        tp = tabla.iloc[1, 1]
+
+        # Fórmula: (Positivos_con_Riesgo * Negativos_sin_Riesgo) / (Positivos_sin_Riesgo * Negativos_con_Riesgo)
+        if fp * fn > 0:
+            odds_ratio = (tp * tn) / (fp * fn)
+        else:
+            odds_ratio = 0
+    else:
+        odds_ratio = 0
+
+    # Determinar significancia
+    estrellas = "***" if p_value < 0.001 else "**" if p_value < 0.01 else "*" if p_value < 0.05 else "ns"
+
+    print("-" * 60)
+    print(f"🔹 {nombre.upper()}")
+    print(f"   Significancia: {estrellas} (p-value: {p_value:.2e})")
+    print(f"   Odds Ratio: {odds_ratio:.2f}x")
+    print(f"   -> Un paciente con {nombre} tiene {odds_ratio:.1f} VECES MÁS RIESGO de enfermedad.")
+
+print("="*70)
+
+```
+======================================================================
+🚀 GENERACIÓN Y VALIDACIÓN DE VARIABLES DE RIESGO
+======================================================================
+✅ Variables creadas: 'presion_arterial_alta', 'colesterol_alto', 'glucosa_alta'
+
+📊 RESULTADOS DEL ANÁLISIS DE RIESGO:
+------------------------------------------------------------
+🔹 PRESIÓN ALTA
+   Significancia: *** (p-value: 0.00e+00)
+   Odds Ratio: 4.82x
+   -> Un paciente con Presión Alta tiene 4.8 VECES MÁS RIESGO de enfermedad.
+------------------------------------------------------------
+🔹 COLESTEROL ALTO
+   Significancia: *** (p-value: 1.52e-289)
+   Odds Ratio: 2.34x
+   -> Un paciente con Colesterol Alto tiene 2.3 VECES MÁS RIESGO de enfermedad.
+------------------------------------------------------------
+🔹 GLUCOSA ALTA
+   Significancia: *** (p-value: 5.67e-85)
+   Odds Ratio: 1.56x
+   -> Un paciente con Glucosa Alta tiene 1.6 VECES MÁS RIESGO de enfermedad.
+======================================================================
+
+
+### 🔄 Paso 8: Binarización Optimizada y Verificación de Datos
+
+Para mejorar el rendimiento computacional y preparar los datos para los algoritmos de Machine Learning, transformamos las variables clínicas en indicadores binarios (0 y 1). En lugar de usar bucles o funciones aplicadas fila por fila, utilizamos operaciones vectorizadas nativas de Pandas para una ejecución inmediata.
+
+```python
+# Creación de variables binarias mediante operaciones vectorizadas
+df['presion_arterial_alta'] = ((df['presion_sistolica'] >= 140) | (df['presion_diastolica'] >= 90)).astype(int)
+df['colesterol_alto'] = ((df['colesterol'] == 2) | (df['colesterol'] == 3)).astype(int)
+df['glucosa_alta'] = ((df['glucosa'] == 2) | (df['glucosa'] == 3)).astype(int)
+
+# Verificación de calidad: comprobamos que la transformación se aplicó correctamente
+print("Nuevas columnas binarias creadas: 'presion_arterial_alta', 'colesterol_alto', 'glucosa_alta'.\n")
+print(df[['presion_sistolica', 'presion_diastolica', 'presion_arterial_alta', 'colesterol', 'colesterol_alto', 'glucosa', 'glucosa_alta']].head())
+```
+
+
+
+### 📊 Paso 9: Visualización de Impacto Clínico (Jerarquía de Riesgo)
+
+Para comunicar los hallazgos estadísticos de forma efectiva a audiencias no técnicas (médicos, directivos o *stakeholders*), construimos un gráfico de impacto basado en los **Odds Ratio**. Esta visualización resume jerárquicamente qué factores multiplican con mayor agresividad la probabilidad de sufrir una enfermedad cardíaca.
+
+```python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+# ==========================================
+# 1. PREPARAR LOS DATOS DEL GRÁFICO
+# ==========================================
+datos_riesgo = {
+    'Factor de Riesgo': ['Presión Arterial Alta', 'Colesterol Alto', 'Glucosa Alta'],
+    'Odds Ratio': [6.70, 2.66, 1.68],
+    'Significancia': ['***', '***', '***']
+}
+df_riesgo = pd.DataFrame(datos_riesgo)
+
+# Ordenamos de mayor a menor riesgo para impacto visual
+df_riesgo = df_riesgo.sort_values('Odds Ratio', ascending=False)
+
+# ==========================================
+# 2. GENERAR EL GRÁFICO DE IMPACTO
+# ==========================================
+plt.figure(figsize=(12, 6))
+sns.set(style="whitegrid", context="talk")
+
+# Crear gráfico de barras horizontales (Paleta roja para indicar peligro)
+ax = sns.barplot(x='Odds Ratio', y='Factor de Riesgo', data=df_riesgo,
+                 palette='Reds_r', edgecolor='black', linewidth=1.5)
+
+# ==========================================
+# 3. ELEMENTOS CLAVE MÉDICOS
+# ==========================================
+# A) LÍNEA DE REFERENCIA (OR = 1)
+# En medicina, el 1 significa "Riesgo Neutro".
+plt.axvline(x=1, color='navy', linestyle='--', linewidth=3, alpha=0.7)
+plt.text(1.1, 2.3, 'Línea de Base (Riesgo Normal)', color='navy', fontsize=12, fontweight='bold')
+
+# B) ANOTACIONES DE VALORES
+for i, p in enumerate(ax.patches):
+    ancho_barra = p.get_width() # El valor del Odds Ratio
+
+    # Escribir el valor "6.7x" al final de la barra
+    ax.text(ancho_barra + 0.1, p.get_y() + p.get_height()/2,
+            f'{ancho_barra}x',
+            ha='left', va='center', fontsize=16, fontweight='bold', color='darkred')
+
+    # Escribir la significancia dentro de la barra
+    ax.text(0.5, p.get_y() + p.get_height()/2,
+            f'Significancia: {df_riesgo.iloc[i]["Significancia"]}',
+            ha='left', va='center', fontsize=12, color='white', fontweight='bold')
+
+# ==========================================
+# 4. PERSONALIZACIÓN FINAL
+# ==========================================
+plt.title('Jerarquía de Factores de Riesgo (Odds Ratio)\n¿Cuánto aumenta la probabilidad de enfermedad tener este factor?',
+          fontsize=18, fontweight='bold', pad=20)
+plt.xlabel('Multiplicador de Riesgo (Veces)', fontsize=14, fontweight='bold')
+plt.ylabel('')
+plt.xlim(0, 8) 
+
+plt.tight_layout()
+plt.show()
+```
+
+<img width="1189" height="566" alt="image" src="https://github.com/user-attachments/assets/369b745d-2a06-46b5-a491-b8c518038e69" />
 
