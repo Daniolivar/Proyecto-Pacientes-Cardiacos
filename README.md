@@ -162,3 +162,66 @@ plt.show()
 ```
 <img width="1566" height="1166" alt="image" src="https://github.com/user-attachments/assets/e7164106-74a9-4914-b62e-bcb082e19887" />
 
+
+### 🧬 Paso 5: Ingeniería de Características y Análisis Avanzado por Género
+
+Para profundizar en los factores de riesgo, calculamos variables clínicas adicionales y generamos gráficos de violín. Esto nos permite observar la densidad poblacional y comparar cómo afectan estos factores de forma distinta a hombres y mujeres.
+
+```python
+# 1. Feature Engineering: Creación de variables clínicas clave
+if 'presion_pulso' not in df.columns:
+    # La presión de pulso es un indicador cardiovascular vital
+    df['presion_pulso'] = df['presion_sistolica'] - df['presion_diastolica']
+    print("Variable 'presion_pulso' creada.")
+
+if 'imc' not in df.columns:
+    df['imc'] = df['peso'] / ((df['altura'] / 100) ** 2)
+    print("Variable 'imc' creada.")
+
+# 2. Configuración y preparación de etiquetas para el gráfico
+sns.set(style="whitegrid", context="talk")
+
+vars_numericas = ['edad', 'presion_sistolica', 'presion_diastolica', 'imc', 'presion_pulso', 'peso']
+nombres_vars = ['Edad (Años)', 'Presión Sistólica (mmHg)', 'Presión Diastólica (mmHg)', 'IMC (kg/m²)', 'Presión de Pulso (mmHg)', 'Peso (kg)']
+
+df_plot = df.copy()
+# Mapeo de variables categóricas a texto para la leyenda del gráfico
+if 'genero' in df_plot.columns:
+    df_plot['genero_lbl'] = df_plot['genero'].replace({1: 'Mujer', 2: 'Hombre'})
+else:
+    df_plot['genero_lbl'] = 'General'
+
+df_plot['target_lbl'] = df_plot['enfermedad_cardiaca'].replace({0: 'Sano', 1: 'Enfermo'})
+
+# 3. Generación de Gráficos de Violín (Violinplots)
+fig, axes = plt.subplots(2, 3, figsize=(20, 12))
+axes = axes.flatten()
+
+for i, (var, nombre) in enumerate(zip(vars_numericas, nombres_vars)):
+    ax = axes[i]
+    if var in df_plot.columns:
+        sns.violinplot(
+            data=df_plot, 
+            x='target_lbl', 
+            y=var, 
+            hue='genero_lbl',
+            split=True,         # Une las mitades de hombre y mujer en una sola figura
+            inner='quartile',   # Muestra las líneas de los cuartiles por dentro
+            palette={'Mujer': '#ff9999', 'Hombre': '#66b3ff'}, 
+            ax=ax
+        )
+        ax.set_title(nombre, fontsize=14, fontweight='bold')
+        ax.set_xlabel('')
+        ax.set_ylabel('')
+
+        # Dejar la leyenda solo en el primer gráfico para no saturar la imagen
+        if i == 0:
+            ax.legend(title='Género', loc='upper left', fontsize=10)
+        else:
+            if ax.get_legend(): ax.get_legend().remove()
+
+plt.suptitle('Distribución de Factores de Riesgo', fontsize=20, fontweight='bold', y=0.98)
+plt.tight_layout()
+plt.show()
+```
+
